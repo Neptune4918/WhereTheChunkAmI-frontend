@@ -1,0 +1,210 @@
+🧭 Minecraft GeoGuessr – System Design Spec
+🎯 Цел на проекта
+
+Web multiplayer игра, вдъхновена от GeoGuessr, но върху Minecraft свят, вместо реална карта.
+
+Играчите:
+
+получават 360° панорама от случайна точка в Minecraft света
+трябва да познаят координатите върху карта
+получават точки според точността
+играят в multiplayer (vs режим)
+🧱 Общa архитектура
+Frontend (React)
+    ↕ Socket.IO
+Backend (Node.js + Fastify)
+    ↕ SQL
+PostgreSQL (source of truth)
+🖥️ Frontend (React + Vite)
+Технологии
+React + TypeScript
+Vite
+React Router
+Socket.IO client
+Zustand (state management)
+Основни екрани
+Lobby (създаване/влизане в игра)
+Game screen (панорама + карта)
+Results screen (scoreboard)
+Отговорности
+визуализация на панорама
+избор на координати върху карта
+изпращане на guess към backend
+показване на резултати
+НЕ прави:
+не изчислява score
+не изчислява distance
+не съдържа game logic
+⚙️ Backend (Node.js + Fastify)
+Технологии
+Node.js
+Fastify
+Socket.IO server
+Prisma ORM
+Отговорности
+game logic (истината)
+scoring
+управление на matches и rounds
+комуникация с DB
+realtime events
+🗄️ Database (PostgreSQL)
+Основен принцип
+
+👉 PostgreSQL е единственият source of truth
+
+Схема
+users
+id
+username
+created_at
+matches
+id
+status (waiting | active | finished)
+created_at
+match_players
+id
+match_id
+user_id
+score
+rounds
+id
+match_id
+round_number
+location_id
+locations
+id
+x
+y
+z
+panorama_url
+type (open | closed)
+round_results
+id
+round_id
+user_id
+x
+z
+distance
+score
+🎮 Game Loop (важно)
+1. Lobby
+players join match
+backend създава match
+2. Start game
+
+Backend:
+
+избира locations за rounds
+изпраща:
+round:start
+3. Gameplay
+
+Frontend:
+
+показва panorama
+player избира guess
+
+Frontend → Backend:
+
+socket.emit("guess", { x, z })
+4. Backend обработка
+
+Backend:
+
+взима истинските координати
+смята distance
+смята score
+връща резултат
+socket.emit("round_result", {
+  distance,
+  score
+});
+5. End round
+всички резултати се събират
+запис в PostgreSQL
+6. End match
+total score се изчислява backend-side
+запис в DB
+leaderboard update
+🧮 Scoring system
+
+Backend изчислява:
+
+distance = euclidean(x1, z1, x2, z2)
+
+score = max(0, 5000 - distance * multiplier)
+🔌 Socket.IO events
+Client → Server
+join_match
+start_match
+guess
+Server → Client
+match_state
+round_start
+round_result
+round_end
+match_end
+player_joined
+🧠 Critical rules
+❌ НЕ:
+frontend не смята score
+frontend не смята distance
+frontend не решава резултати
+✅ ДА:
+backend е единственият авторитет
+DB пази финални резултати
+socket е само transport
+📁 Backend structure
+backend/
+ ├── src/
+ │   ├── server.ts
+ │   ├── routes/
+ │   ├── sockets/
+ │   │    └── gameSocket.ts
+ │   ├── services/
+ │   │    ├── gameService.ts
+ │   │    ├── scoringService.ts
+ │   ├── db/
+ │   │    ├── prisma.ts
+ │   ├── utils/
+📁 Frontend structure
+frontend/
+ ├── src/
+ │   ├── pages/
+ │   │    ├── Lobby.tsx
+ │   │    ├── Game.tsx
+ │   ├── components/
+ │   │    ├── Panorama.tsx
+ │   │    ├── Map.tsx
+ │   │    ├── Scoreboard.tsx
+ │   ├── socket/
+ │   │    ├── socket.ts
+ │   ├── state/
+ │   │    ├── gameStore.ts
+🚀 MVP roadmap
+Phase 1
+React UI
+single player guess
+static locations
+Phase 2
+Socket.IO multiplayer
+lobby system
+Phase 3
+scoring + rounds
+PostgreSQL persistence
+Phase 4
+leaderboard + vs mode polish
+⚠️ Key design decision
+
+👉 Frontend = UI only
+👉 Backend = game brain
+👉 PostgreSQL = truth
+
+🧭 Summary
+
+Това е:
+
+realtime multiplayer game
+fully SQL-backed
+server-authoritative scoring model
+React UI client
